@@ -44,13 +44,22 @@ export default function DashboardPage() {
   const [melhorVinho, setMelhorVinho] = useState<Degustacao | null>(null)
   const [reviews, setReviews] = useState<Review[]>([])
 
-  useEffect(() => {
-    async function fetchData() {
-      const { data } = await supabase.from("degustacoes").select("*")
-      if (data) setDegustacoes(data)
+useEffect(() => {
+  async function fetchData() {
+    const { data, error } = await supabase
+      .from("degustacoes")
+      .select("*")  // busca todas as degustações
+      .order("created_at", { ascending: false })
+
+    if (error) {
+      console.error("Erro ao buscar degustações:", error)
+      return
     }
-    fetchData()
-  }, [])
+
+    if (data) setDegustacoes(data)
+  }
+  fetchData()
+}, [])
 
   async function loadReviews(vinhoId: string) {
     const { data } = await supabase

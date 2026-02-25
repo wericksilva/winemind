@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
+import { useUserProfile } from "@/hooks/useUserProfile"
 
 export default function AppShell({
   children,
@@ -13,6 +14,7 @@ export default function AppShell({
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+  const { profile, loading: profileLoading } = useUserProfile() // hook perfil
 
   async function handleLogout() {
     setLoading(true)
@@ -56,8 +58,25 @@ export default function AppShell({
               WineMind 🍷
             </h1>
 
-            <nav className="mt-8 space-y-2 text-stone-600 flex-1">
+            {/* PERFIL DO USUÁRIO */}
+            {!profileLoading && profile && (
+              <div className="flex items-center gap-3 mt-4 mb-6">
+                {profile.avatar_url ? (
+                  <img
+                    src={profile.avatar_url}
+                    alt={profile.name}
+                    className="w-10 h-10 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-purple-200 flex items-center justify-center text-white font-bold">
+                    {profile.name?.[0].toUpperCase()}
+                  </div>
+                )}
+                <p className="font-medium">{profile.name}</p>
+              </div>
+            )}
 
+            <nav className="mt-8 space-y-2 text-stone-600 flex-1">
               <Link
                 href="/dashboard"
                 className="block px-4 py-3 rounded-lg hover:bg-purple-50 hover:text-purple-600 transition"
@@ -89,7 +108,6 @@ export default function AppShell({
               >
                 Grupos
               </Link>
-
             </nav>
 
             <button
@@ -103,6 +121,7 @@ export default function AppShell({
           </div>
         </aside>
 
+        {/* OVERLAY MOBILE */}
         {open && (
           <div
             className="fixed inset-0 bg-black/40 md:hidden z-30"
