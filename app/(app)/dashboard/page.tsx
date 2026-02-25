@@ -48,39 +48,28 @@ export default function DashboardPage() {
   }
 
   const total = degustacoes.length
+  const media = degustacoes.reduce((acc, d) => acc + d.nota, 0) / total
+  const melhor = degustacoes.reduce((prev, current) =>
+    prev.nota > current.nota ? prev : current
+  )
 
-  const media =
-    degustacoes.reduce((acc, d) => acc + d.nota, 0) / total
-
-  const melhor =
-    degustacoes.reduce((prev, current) =>
-      prev.nota > current.nota ? prev : current
-    )
-
-  // 🍩 Donut Chart - Distribuição de Notas com exemplo de vinho
+  // 🍩 Distribuição de Notas
   const distribuicao = [1, 2, 3, 4, 5].map((nota) => {
-    const vinhos = degustacoes
-      .filter((d) => d.nota === nota)
-      .map((d) => d.nome_vinho)
+    const vinhos = degustacoes.filter((d) => d.nota === nota)
     return {
       name: `${nota}★`,
       value: vinhos.length,
-      example: vinhos[0] || "",
+      example: vinhos[0]?.nome_vinho || "",
     }
   })
 
-  const COLORS = [
-    "#ef4444",
-    "#f97316",
-    "#eab308",
-    "#84cc16",
-    "#22c55e",
-  ]
+  const COLORS = ["#ef4444", "#f97316", "#eab308", "#84cc16", "#22c55e"]
 
   // 🌍 Ranking País
-  const paisCount: { pais: string; quantidade: number }[] = Object.entries(
-    degustacoes.reduce((acc: Record<string, number>, item) => {
-      acc[item.pais] = (acc[item.pais] || 0) + 1
+  const paisCount = Object.entries(
+    degustacoes.reduce((acc: Record<string, number>, d) => {
+      const pais = d.pais.trim()
+      acc[pais] = (acc[pais] || 0) + 1
       return acc
     }, {})
   )
@@ -88,16 +77,22 @@ export default function DashboardPage() {
     .sort((a, b) => b.quantidade - a.quantidade)
     .slice(0, 5)
 
-  // 🍇 Ranking Uva
-  const uvaCount: { uva: string; quantidade: number }[] = Object.entries(
-    degustacoes.reduce((acc: Record<string, number>, item) => {
-      acc[item.uva] = (acc[item.uva] || 0) + 1
-      return acc
-    }, {})
-  )
-    .map(([uva, quantidade]) => ({ uva, quantidade }))
+  // 🍇 Ranking Uvas (ignora maiúsculas/minúsculas)
+  const uvaMap: Record<string, { uvaOriginal: string; quantidade: number }> = {}
+
+  degustacoes.forEach((d) => {
+    const uvaKey = d.uva.trim().toLowerCase()
+    if (!uvaMap[uvaKey]) {
+      uvaMap[uvaKey] = { uvaOriginal: d.uva.trim(), quantidade: 1 }
+    } else {
+      uvaMap[uvaKey].quantidade += 1
+    }
+  })
+
+  const uvaCount = Object.values(uvaMap)
     .sort((a, b) => b.quantidade - a.quantidade)
     .slice(0, 5)
+    .map((u) => ({ uva: u.uvaOriginal, quantidade: u.quantidade }))
 
   return (
     <div className="space-y-10">
@@ -124,10 +119,9 @@ export default function DashboardPage() {
 
       {/* GRID GRÁFICOS */}
       <div className="grid md:grid-cols-3 gap-6">
-        {/* DONUT */}
+        {/* DONUT - Distribuição de Notas */}
         <div className="bg-white p-6 rounded-xl shadow border">
           <h3 className="font-bold mb-4">Distribuição de Notas</h3>
-
           <ResponsiveContainer width="100%" height={250}>
             <PieChart>
               <Pie
@@ -138,14 +132,11 @@ export default function DashboardPage() {
                 paddingAngle={5}
                 labelLine={false}
                 label={({ name, percent }) =>
-                  `${name} ${( (percent ?? 0) * 100 ).toFixed(0)}%`
+                  `${name} ${((percent ?? 0) * 100).toFixed(0)}%`
                 }
               >
                 {distribuicao.map((_, index) => (
-                  <Cell
-                    key={index}
-                    fill={COLORS[index % COLORS.length]}
-                  />
+                  <Cell key={index} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
               <Tooltip
@@ -161,7 +152,6 @@ export default function DashboardPage() {
         {/* RANKING PAÍS */}
         <div className="bg-white p-6 rounded-xl shadow border">
           <h3 className="font-bold mb-4">Top Países 🌍</h3>
-
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={paisCount}>
               <XAxis dataKey="pais" />
@@ -175,7 +165,6 @@ export default function DashboardPage() {
         {/* RANKING UVA */}
         <div className="bg-white p-6 rounded-xl shadow border">
           <h3 className="font-bold mb-4">Top Uvas 🍇</h3>
-
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={uvaCount}>
               <XAxis dataKey="uva" />
@@ -186,57 +175,11 @@ export default function DashboardPage() {
           </ResponsiveContainer>
         </div>
       </div>
-
-      {/* MODAL */}
-      {modalOpen && melhorVinho && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4">
-          <div className="bg-white max-w-md w-full rounded-xl p-6 relative">
-            <button
-              onClick={() => setModalOpen(false)}
-              className="absolute top-3 right-3"
-            >
-              ✕
-            </button>
-
-            {melhorVinho.imagem_url && (
-              <img
-                src={melhorVinho.imagem_url}
-                className="w-full h-56 object-cover rounded-lg mb-4"
-              />
-            )}
-
-            <h3 className="text-xl font-bold">{melhorVinho.nome_vinho}</h3>
-
-            <p className="text-sm text-stone-600">
-              {melhorVinho.uva} • {melhorVinho.pais}
-            </p>
-
-            <p className="text-yellow-400 text-lg mt-2">
-              {"★".repeat(melhorVinho.nota)}
-            </p>
-
-            <p className="text-sm mt-4">{melhorVinho.observacoes}</p>
-
-            <p className="text-xs text-stone-400 mt-4">
-              Degustado em{" "}
-              {new Date(
-                melhorVinho.data_degustacao
-              ).toLocaleDateString("pt-BR")}
-            </p>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
 
-function GlassCard({
-  titulo,
-  valor,
-}: {
-  titulo: string
-  valor: number | string
-}) {
+function GlassCard({ titulo, valor }: { titulo: string; valor: number | string }) {
   return (
     <div className="bg-white/70 backdrop-blur-lg p-6 rounded-xl shadow border">
       <p className="text-sm text-stone-500">{titulo}</p>

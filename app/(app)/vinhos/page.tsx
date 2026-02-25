@@ -14,11 +14,22 @@ type Degustacao = {
   imagem_url?: string
 }
 
+type Review = {
+  id: string
+  user_id: string
+  rating: number
+  comment: string
+  created_at: string
+}
+
 export default function VinhosPage() {
   const [degustacoes, setDegustacoes] = useState<Degustacao[]>([])
   const [busca, setBusca] = useState("")
   const [filtroNota, setFiltroNota] = useState("")
   const [selectedVinho, setSelectedVinho] = useState<Degustacao | null>(null)
+  const [reviews, setReviews] = useState<Review[]>([])
+  const [newRating, setNewRating] = useState(0)
+  const [newComment, setNewComment] = useState("")
 
   useEffect(() => {
     async function fetchData() {
@@ -31,28 +42,29 @@ export default function VinhosPage() {
     fetchData()
   }, [])
 
-  async function loadDegustacoes() {
+  async function loadReviews(vinhoId: string) {
     const { data } = await supabase
-      .from("degustacoes")
+      .from("wine_reviews")
       .select("*")
+      .eq("degustacao_id", vinhoId)
       .order("created_at", { ascending: false })
-    if (data) setDegustacoes(data)
+    if (data) setReviews(data)
   }
 
-  async function handleDelete(id: string) {
-    await supabase.from("degustacoes").delete().eq("id", id)
-    loadDegustacoes()
-  }
-
-  function limparFiltros() {
-    setBusca("")
-    setFiltroNota("")
+  async function handleSubmitReview() {
+    if (!selectedVinho || newRating <= 0) return
+    await supabase.from("wine_reviews").insert({
+      degustacao_id: selectedVinho.id,
+      rating: newRating,
+      comment: newComment,
+    })
+    setNewRating(0)
+    setNewComment("")
+    loadReviews(selectedVinho.id)
   }
 
   const degustacoesFiltradas = degustacoes.filter((item) => {
-    const matchBusca = item.nome_vinho
-      .toLowerCase()
-      .includes(busca.toLowerCase())
+    const matchBusca = item.nome_vinho.toLowerCase().includes(busca.toLowerCase())
     const matchNota = filtroNota ? item.nota === Number(filtroNota) : true
     return matchBusca && matchNota
   })
@@ -70,11 +82,8 @@ export default function VinhosPage() {
             onChange={(e) => setBusca(e.target.value)}
             className="p-2 md:p-3 border rounded-lg w-full md:w-1/2 focus:ring-2 focus:ring-purple-500 outline-none"
           />
-
           <div className="flex flex-col gap-2 mt-2 md:mt-0">
-            <p className="text-sm font-medium mb-2 text-stone-600">
-              Filtrar por nota
-            </p>
+            <p className="text-sm font-medium mb-2 text-stone-600">Filtrar por nota</p>
             <div className="flex gap-2">
               {[1, 2, 3, 4, 5].map((n) => (
                 <button
@@ -92,15 +101,6 @@ export default function VinhosPage() {
                 </button>
               ))}
             </div>
-
-            {(busca || filtroNota) && (
-              <button
-                onClick={limparFiltros}
-                className="text-sm text-purple-600 hover:underline text-left mt-1"
-              >
-                Limpar filtros
-              </button>
-            )}
           </div>
         </div>
       </div>
@@ -111,7 +111,10 @@ export default function VinhosPage() {
           <div
             key={item.id}
             className="bg-white p-3 md:p-4 rounded-xl shadow border flex flex-col cursor-pointer hover:shadow-lg transition"
-            onClick={() => setSelectedVinho(item)}
+            onClick={() => {
+              setSelectedVinho(item)
+              loadReviews(item.id)
+            }}
           >
             {item.imagem_url && (
               <img
@@ -120,39 +123,17 @@ export default function VinhosPage() {
                 className="w-full h-32 md:h-48 object-cover rounded-lg mb-2 md:mb-4"
               />
             )}
-
-            <h3 className="font-bold text-sm md:text-lg mb-1">
-              {item.nome_vinho}
-            </h3>
-
-            <p className="text-xs md:text-sm text-stone-600 mb-1">
-              {item.uva} • {item.pais}
-            </p>
-
-            <div className="text-yellow-400 mb-1 text-sm">
-              {"★".repeat(item.nota)}
-            </div>
-
-            <p className="text-xs md:text-sm mb-2 line-clamp-3">
-              {item.observacoes}
-            </p>
-
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                handleDelete(item.id)
-              }}
-              className="text-red-500 text-xs md:text-sm hover:underline mt-auto"
-            >
-              Excluir
-            </button>
+            <h3 className="font-bold text-sm md:text-lg mb-1">{item.nome_vinho}</h3>
+            <p className="text-xs md:text-sm text-stone-600 mb-1">{item.uva} • {item.pais}</p>
+            <div className="text-yellow-400 mb-1 text-sm">{"★".repeat(item.nota)}</div>
+            <p className="text-xs md:text-sm mb-2 line-clamp-3">{item.observacoes}</p>
           </div>
         ))}
       </div>
 
-      {/* MODAL DETALHE VINHO */}
+      {/* MODAL DETALHE VINHO + AVALIAÇÕES */}
       {selectedVinho && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 overflow-auto">
           <div className="bg-white max-w-md w-full rounded-xl p-6 relative">
             <button
               onClick={() => setSelectedVinho(null)}
@@ -169,23 +150,58 @@ export default function VinhosPage() {
             )}
 
             <h3 className="text-xl font-bold">{selectedVinho.nome_vinho}</h3>
-
-            <p className="text-sm text-stone-600">
-              {selectedVinho.uva} • {selectedVinho.pais}
-            </p>
-
-            <p className="text-yellow-400 text-lg mt-2">
-              {"★".repeat(selectedVinho.nota)}
-            </p>
-
+            <p className="text-sm text-stone-600">{selectedVinho.uva} • {selectedVinho.pais}</p>
+            <p className="text-yellow-400 text-lg mt-2">{"★".repeat(selectedVinho.nota)}</p>
             <p className="text-sm mt-4">{selectedVinho.observacoes}</p>
-
-            <p className="text-xs text-stone-400 mt-4">
-              Degustado em{" "}
-              {new Date(selectedVinho.data_degustacao).toLocaleDateString(
-                "pt-BR"
-              )}
+            <p className="text-xs text-stone-400 mt-2">
+              Degustado em {new Date(selectedVinho.data_degustacao).toLocaleDateString("pt-BR")}
             </p>
+
+            {/* AVALIAÇÃO */}
+            <div className="mt-4 border-t pt-4">
+              <h4 className="font-bold mb-2">Deixe sua avaliação</h4>
+              <div className="flex items-center gap-2 mb-2">
+                {[1,2,3,4,5].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setNewRating(n)}
+                    className={`px-2 py-1 rounded border text-sm ${
+                      newRating === n ? "bg-purple-600 text-white" : "bg-white hover:bg-purple-50 border-stone-300"
+                    }`}
+                  >
+                    {n}★
+                  </button>
+                ))}
+              </div>
+              <textarea
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                placeholder="Seu comentário..."
+                className="w-full border p-2 rounded mb-2"
+              />
+              <button
+                onClick={handleSubmitReview}
+                className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700"
+              >
+                Enviar
+              </button>
+            </div>
+
+            {/* LISTA DE AVALIAÇÕES */}
+            <div className="mt-4 border-t pt-4">
+              <h4 className="font-bold mb-2">Avaliações</h4>
+              {reviews.length === 0 && <p className="text-sm text-stone-500">Nenhuma avaliação ainda.</p>}
+              {reviews.map((r) => (
+                <div key={r.id} className="border-b py-2">
+                  <p className="text-yellow-400">{"★".repeat(r.rating)}</p>
+                  <p className="text-sm">{r.comment}</p>
+                  <p className="text-xs text-stone-400">
+                    {new Date(r.created_at).toLocaleDateString("pt-BR")}
+                  </p>
+                </div>
+              ))}
+            </div>
+
           </div>
         </div>
       )}
