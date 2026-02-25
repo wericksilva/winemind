@@ -18,6 +18,7 @@ export default function VinhosPage() {
   const [degustacoes, setDegustacoes] = useState<Degustacao[]>([])
   const [busca, setBusca] = useState("")
   const [filtroNota, setFiltroNota] = useState("")
+  const [selectedVinho, setSelectedVinho] = useState<Degustacao | null>(null)
 
   useEffect(() => {
     async function fetchData() {
@@ -58,9 +59,7 @@ export default function VinhosPage() {
 
   return (
     <div className="px-2 md:px-0">
-      <h2 className="text-3xl font-bold mb-6">
-        Vinhos Degustados 🍷
-      </h2>
+      <h2 className="text-3xl font-bold mb-6">Vinhos Degustados 🍷</h2>
 
       {/* FILTROS */}
       <div className="bg-white p-4 md:p-5 rounded-xl shadow border mb-8">
@@ -109,9 +108,10 @@ export default function VinhosPage() {
       {/* LISTA DE VINHOS */}
       <div className="grid grid-cols-2 gap-2 md:grid-cols-2 md:gap-6">
         {degustacoesFiltradas.map((item) => (
-          <div 
+          <div
             key={item.id}
-            className="bg-white p-3 md:p-4 rounded-xl shadow border flex flex-col"
+            className="bg-white p-3 md:p-4 rounded-xl shadow border flex flex-col cursor-pointer hover:shadow-lg transition"
+            onClick={() => setSelectedVinho(item)}
           >
             {item.imagem_url && (
               <img
@@ -138,7 +138,10 @@ export default function VinhosPage() {
             </p>
 
             <button
-              onClick={() => handleDelete(item.id)}
+              onClick={(e) => {
+                e.stopPropagation()
+                handleDelete(item.id)
+              }}
               className="text-red-500 text-xs md:text-sm hover:underline mt-auto"
             >
               Excluir
@@ -146,6 +149,46 @@ export default function VinhosPage() {
           </div>
         ))}
       </div>
+
+      {/* MODAL DETALHE VINHO */}
+      {selectedVinho && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+          <div className="bg-white max-w-md w-full rounded-xl p-6 relative">
+            <button
+              onClick={() => setSelectedVinho(null)}
+              className="absolute top-3 right-3 text-xl font-bold"
+            >
+              ✕
+            </button>
+
+            {selectedVinho.imagem_url && (
+              <img
+                src={selectedVinho.imagem_url}
+                className="w-full h-56 object-cover rounded-lg mb-4"
+              />
+            )}
+
+            <h3 className="text-xl font-bold">{selectedVinho.nome_vinho}</h3>
+
+            <p className="text-sm text-stone-600">
+              {selectedVinho.uva} • {selectedVinho.pais}
+            </p>
+
+            <p className="text-yellow-400 text-lg mt-2">
+              {"★".repeat(selectedVinho.nota)}
+            </p>
+
+            <p className="text-sm mt-4">{selectedVinho.observacoes}</p>
+
+            <p className="text-xs text-stone-400 mt-4">
+              Degustado em{" "}
+              {new Date(selectedVinho.data_degustacao).toLocaleDateString(
+                "pt-BR"
+              )}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
