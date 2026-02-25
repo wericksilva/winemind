@@ -67,6 +67,14 @@ export default function AppShell({
               </Link>
 
               <Link
+                href="/vinhos"
+                className="block px-4 py-3 rounded-lg hover:bg-purple-50 hover:text-purple-600 transition"
+                onClick={() => setOpen(false)}
+              >
+                Vinhos
+              </Link>
+
+              <Link
                 href="/degustacoes"
                 className="block px-4 py-3 rounded-lg hover:bg-purple-50 hover:text-purple-600 transition"
                 onClick={() => setOpen(false)}
