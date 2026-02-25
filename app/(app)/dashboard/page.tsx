@@ -25,6 +25,14 @@ type Degustacao = {
   imagem_url?: string
 }
 
+type Review = {
+  id: string
+  user_id: string
+  rating: number
+  comment: string
+  created_at: string
+}
+
 type CountItem = {
   key: string
   quantidade: number
@@ -34,6 +42,7 @@ export default function DashboardPage() {
   const [degustacoes, setDegustacoes] = useState<Degustacao[]>([])
   const [modalOpen, setModalOpen] = useState(false)
   const [melhorVinho, setMelhorVinho] = useState<Degustacao | null>(null)
+  const [reviews, setReviews] = useState<Review[]>([])
 
   useEffect(() => {
     async function fetchData() {
@@ -42,6 +51,15 @@ export default function DashboardPage() {
     }
     fetchData()
   }, [])
+
+  async function loadReviews(vinhoId: string) {
+    const { data } = await supabase
+      .from("wine_reviews")
+      .select("*")
+      .eq("degustacao_id", vinhoId)
+      .order("created_at", { ascending: false })
+    if (data) setReviews(data)
+  }
 
   if (!degustacoes.length) {
     return <p>Nenhuma degustação cadastrada.</p>
@@ -53,7 +71,6 @@ export default function DashboardPage() {
     prev.nota > current.nota ? prev : current
   )
 
-  // 🍩 Distribuição de Notas
   const distribuicao = [1, 2, 3, 4, 5].map((nota) => {
     const vinhos = degustacoes.filter((d) => d.nota === nota)
     return {
@@ -65,7 +82,6 @@ export default function DashboardPage() {
 
   const COLORS = ["#ef4444", "#f97316", "#eab308", "#84cc16", "#22c55e"]
 
-  // 🌍 Ranking País
   const paisCount = Object.entries(
     degustacoes.reduce((acc: Record<string, number>, d) => {
       const pais = d.pais.trim()
@@ -77,9 +93,7 @@ export default function DashboardPage() {
     .sort((a, b) => b.quantidade - a.quantidade)
     .slice(0, 5)
 
-  // 🍇 Ranking Uvas (ignora maiúsculas/minúsculas)
   const uvaMap: Record<string, { uvaOriginal: string; quantidade: number }> = {}
-
   degustacoes.forEach((d) => {
     const uvaKey = d.uva.trim().toLowerCase()
     if (!uvaMap[uvaKey]) {
@@ -88,11 +102,17 @@ export default function DashboardPage() {
       uvaMap[uvaKey].quantidade += 1
     }
   })
-
   const uvaCount = Object.values(uvaMap)
     .sort((a, b) => b.quantidade - a.quantidade)
     .slice(0, 5)
     .map((u) => ({ uva: u.uvaOriginal, quantidade: u.quantidade }))
+
+  // Função para abrir modal e carregar avaliações
+  const handleOpenModal = async (vinho: Degustacao) => {
+    setMelhorVinho(vinho)
+    await loadReviews(vinho.id)
+    setModalOpen(true)
+  }
 
   return (
     <div className="space-y-10">
@@ -102,12 +122,8 @@ export default function DashboardPage() {
       <div className="grid md:grid-cols-3 gap-6">
         <GlassCard titulo="Total Degustações" valor={total} />
         <GlassCard titulo="Média Geral" valor={media.toFixed(1)} />
-
         <div
-          onClick={() => {
-            setMelhorVinho(melhor)
-            setModalOpen(true)
-          }}
+          onClick={() => handleOpenModal(melhor)}
           className="bg-gradient-to-r from-purple-600 to-pink-500 text-white p-6 rounded-xl shadow-lg cursor-pointer hover:scale-105 transition"
         >
           <p className="text-sm opacity-80">🏆 Melhor Vinho</p>
@@ -175,6 +191,51 @@ export default function DashboardPage() {
           </ResponsiveContainer>
         </div>
       </div>
+
+      {/* MODAL MELHOR VINHO + AVALIAÇÕES */}
+      {modalOpen && melhorVinho && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+          <div className="relative w-full max-w-lg max-h-[90vh] bg-white rounded-xl overflow-y-auto shadow-lg p-6">
+            {/* Botão de fechar */}
+            <button
+              onClick={() => setModalOpen(false)}
+              className="absolute top-4 right-4 text-xl font-bold bg-white rounded-full p-1 shadow hover:bg-gray-100"
+            >
+              ✕
+            </button>
+
+            {melhorVinho.imagem_url && (
+              <img
+                src={melhorVinho.imagem_url}
+                className="w-full h-56 md:h-72 object-cover rounded-lg mb-4"
+              />
+            )}
+
+            <h3 className="text-xl font-bold">{melhorVinho.nome_vinho}</h3>
+            <p className="text-sm text-stone-600">{melhorVinho.uva} • {melhorVinho.pais}</p>
+            <p className="text-yellow-400 text-lg mt-2">{"★".repeat(melhorVinho.nota)}</p>
+            <p className="text-sm mt-4">{melhorVinho.observacoes}</p>
+            <p className="text-xs text-stone-400 mt-2">
+              Degustado em {new Date(melhorVinho.data_degustacao).toLocaleDateString("pt-BR")}
+            </p>
+
+            {/* LISTA DE AVALIAÇÕES */}
+            <div className="mt-4 border-t pt-4">
+              <h4 className="font-bold mb-2">Avaliações</h4>
+              {reviews.length === 0 && <p className="text-sm text-stone-500">Nenhuma avaliação ainda.</p>}
+              {reviews.map((r) => (
+                <div key={r.id} className="border-b py-2">
+                  <p className="text-yellow-400">{"★".repeat(r.rating)}</p>
+                  <p className="text-sm">{r.comment}</p>
+                  <p className="text-xs text-stone-400">
+                    {new Date(r.created_at).toLocaleDateString("pt-BR")}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

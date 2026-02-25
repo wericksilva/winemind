@@ -131,80 +131,148 @@ export default function VinhosPage() {
         ))}
       </div>
 
-      {/* MODAL DETALHE VINHO + AVALIAÇÕES */}
-      {selectedVinho && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50 overflow-auto">
-          <div className="bg-white max-w-md w-full rounded-xl p-6 relative">
-            <button
-              onClick={() => setSelectedVinho(null)}
-              className="absolute top-3 right-3 text-xl font-bold"
-            >
-              ✕
-            </button>
+{/* MODAL DETALHE VINHO + AVALIAÇÕES */}
+{selectedVinho && (
+  <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
+    {/* Container principal do modal, com scroll interno */}
+    <div className="relative w-full max-w-lg max-h-[90vh] bg-white rounded-xl overflow-y-auto shadow-lg p-6">
+      
+      {/* Botão de fechar fixo no topo direito */}
+      <button
+        onClick={() => setSelectedVinho(null)}
+        className="absolute top-4 right-4 text-xl font-bold bg-white rounded-full p-1 shadow hover:bg-gray-100"
+      >
+        ✕
+      </button>
 
-            {selectedVinho.imagem_url && (
-              <img
-                src={selectedVinho.imagem_url}
-                className="w-full h-56 object-cover rounded-lg mb-4"
-              />
-            )}
-
-            <h3 className="text-xl font-bold">{selectedVinho.nome_vinho}</h3>
-            <p className="text-sm text-stone-600">{selectedVinho.uva} • {selectedVinho.pais}</p>
-            <p className="text-yellow-400 text-lg mt-2">{"★".repeat(selectedVinho.nota)}</p>
-            <p className="text-sm mt-4">{selectedVinho.observacoes}</p>
-            <p className="text-xs text-stone-400 mt-2">
-              Degustado em {new Date(selectedVinho.data_degustacao).toLocaleDateString("pt-BR")}
-            </p>
-
-            {/* AVALIAÇÃO */}
-            <div className="mt-4 border-t pt-4">
-              <h4 className="font-bold mb-2">Deixe sua avaliação</h4>
-              <div className="flex items-center gap-2 mb-2">
-                {[1,2,3,4,5].map((n) => (
-                  <button
-                    key={n}
-                    onClick={() => setNewRating(n)}
-                    className={`px-2 py-1 rounded border text-sm ${
-                      newRating === n ? "bg-purple-600 text-white" : "bg-white hover:bg-purple-50 border-stone-300"
-                    }`}
-                  >
-                    {n}★
-                  </button>
-                ))}
-              </div>
-              <textarea
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                placeholder="Seu comentário..."
-                className="w-full border p-2 rounded mb-2"
-              />
-              <button
-                onClick={handleSubmitReview}
-                className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700"
-              >
-                Enviar
-              </button>
-            </div>
-
-            {/* LISTA DE AVALIAÇÕES */}
-            <div className="mt-4 border-t pt-4">
-              <h4 className="font-bold mb-2">Avaliações</h4>
-              {reviews.length === 0 && <p className="text-sm text-stone-500">Nenhuma avaliação ainda.</p>}
-              {reviews.map((r) => (
-                <div key={r.id} className="border-b py-2">
-                  <p className="text-yellow-400">{"★".repeat(r.rating)}</p>
-                  <p className="text-sm">{r.comment}</p>
-                  <p className="text-xs text-stone-400">
-                    {new Date(r.created_at).toLocaleDateString("pt-BR")}
-                  </p>
-                </div>
-              ))}
-            </div>
-
-          </div>
-        </div>
+      {selectedVinho.imagem_url && (
+        <img
+          src={selectedVinho.imagem_url}
+          className="w-full h-56 md:h-72 object-cover rounded-lg mb-4"
+        />
       )}
+
+      <h3 className="text-xl font-bold">{selectedVinho.nome_vinho}</h3>
+      <p className="text-sm text-stone-600">{selectedVinho.uva} • {selectedVinho.pais}</p>
+      <p className="text-yellow-400 text-lg mt-2">{"★".repeat(selectedVinho.nota)}</p>
+      <p className="text-sm mt-4">{selectedVinho.observacoes}</p>
+      <p className="text-xs text-stone-400 mt-2">
+        Degustado em {new Date(selectedVinho.data_degustacao).toLocaleDateString("pt-BR")}
+      </p>
+
+      {/* BOTÃO DE EXCLUIR VINHO */}
+      <button
+        onClick={async () => {
+          if (!selectedVinho) return;
+          const confirmDelete = confirm(
+            `Tem certeza que deseja excluir "${selectedVinho.nome_vinho}" e todas as avaliações?`
+          );
+          if (!confirmDelete) return;
+
+          try {
+            // 1. Deletar reviews
+            await supabase
+              .from("wine_reviews")
+              .delete()
+              .eq("degustacao_id", selectedVinho.id);
+
+            // 2. Deletar vinho
+            await supabase
+              .from("degustacoes")
+              .delete()
+              .eq("id", selectedVinho.id);
+
+            // 3. Atualizar lista local
+            setDegustacoes((prev) =>
+              prev.filter((v) => v.id !== selectedVinho.id)
+            );
+
+            // 4. Fechar modal
+            setSelectedVinho(null);
+          } catch (error) {
+            console.error("Erro ao excluir vinho:", error);
+            alert("Não foi possível excluir o vinho. Tente novamente.");
+          }
+        }}
+        className="mt-4 w-full bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+      >
+        Excluir Vinho
+      </button>
+
+      {/* AVALIAÇÃO */}
+      <div className="mt-4 border-t pt-4">
+        <h4 className="font-bold mb-2">Deixe sua avaliação</h4>
+        <div className="flex items-center gap-2 mb-2">
+          {[1,2,3,4,5].map((n) => (
+            <button
+              key={n}
+              onClick={() => setNewRating(n)}
+              className={`px-2 py-1 rounded border text-sm ${
+                newRating === n ? "bg-purple-600 text-white" : "bg-white hover:bg-purple-50 border-stone-300"
+              }`}
+            >
+              {n}★
+            </button>
+          ))}
+        </div>
+        <textarea
+          value={newComment}
+          onChange={(e) => setNewComment(e.target.value)}
+          placeholder="Seu comentário..."
+          className="w-full border p-2 rounded mb-2"
+        />
+        <button
+          onClick={handleSubmitReview}
+          className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700"
+        >
+          Enviar
+        </button>
+      </div>
+
+      {/* LISTA DE AVALIAÇÕES */}
+<div className="mt-4 border-t pt-4">
+  <h4 className="font-bold mb-2">Avaliações</h4>
+  {reviews.length === 0 && <p className="text-sm text-stone-500">Nenhuma avaliação ainda.</p>}
+  {reviews.map((r) => (
+    <div key={r.id} className="border-b py-2 flex justify-between items-start">
+      <div>
+        <p className="text-yellow-400">{"★".repeat(r.rating)}</p>
+        <p className="text-sm">{r.comment}</p>
+        <p className="text-xs text-stone-400">
+          {new Date(r.created_at).toLocaleDateString("pt-BR")}
+        </p>
+      </div>
+      {/* Botão de excluir avaliação */}
+      <button
+        onClick={async () => {
+          const confirmDelete = confirm("Deseja realmente excluir esta avaliação?")
+          if (!confirmDelete) return
+
+          try {
+            await supabase
+              .from("wine_reviews")
+              .delete()
+              .eq("id", r.id)
+
+            // Atualiza lista local sem a avaliação excluída
+            setReviews((prev) => prev.filter((rev) => rev.id !== r.id))
+          } catch (error) {
+            console.error("Erro ao excluir avaliação:", error)
+            alert("Não foi possível excluir a avaliação. Tente novamente.")
+          }
+        }}
+        className="ml-4 text-red-600 hover:text-red-800 text-sm font-bold"
+        title="Excluir avaliação"
+      >
+        🗑️
+      </button>
+    </div>
+  ))}
+</div>
+
+    </div>
+  </div>
+)}
     </div>
   )
 }
